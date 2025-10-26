@@ -42,6 +42,7 @@ Route::controller(ServiceCoreController::class)->group(function () {
 
 Route::controller(CognifyParentController::class)->group(function () {
     Route::post('/register-user', 'register');
+    Route::post('verify-otp', 'verifyPhoneOtp');
     Route::post('/verifyOTP', 'verifyOtp');
     Route::post('/login', 'parentLogin');
 });

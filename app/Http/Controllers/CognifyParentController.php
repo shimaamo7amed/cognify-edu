@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\SMSRequest;
 use App\Http\Requests\VerifyOtpRequest;
 use App\Services\CognifyParentServices;
 use App\Http\Requests\ParentLoginRequest;
@@ -47,21 +48,23 @@ class CognifyParentController extends Controller
     //         return apiResponse(false, [], __('messages.parent_failed'));
     //     }
     // }
-   public function register(CognifyParentRequest $request)
-   {
-    $parent = $this->CognifyParentServices->ParentRegister($request->validated());
+    public function register(Request $request)
+    {
+        $response = $this->CognifyParentServices->ParentRegister($request->all());
+        if ($response) {
+            return apiResponse(true, [], __('messages.otp_success'));
+        } else {
+            return apiResponse(false, [], __('messages.otp_failed'));
+        }
 
-    if ($parent) {
-        $token = $parent->createToken('ParentToken')->plainTextToken;
-
-        return apiResponse(true, [
-            'data'  => $parent,
-            'token' => $token,
-        ], __('messages.parent_success'));
-    } else {
-        return apiResponse(false, [], __('messages.parent_failed'));
     }
-}
+
+    public function verifyPhoneOtp(SMSRequest $request)
+    {
+        
+return $this->CognifyParentServices->verifyOTP($request->validated());
+
+    }
 
     public function parentLogin(ParentLoginRequest $request)
     {

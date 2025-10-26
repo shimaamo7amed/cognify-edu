@@ -89,5 +89,9 @@ return [
     'payment_success' => 'Payment completed successfully',
     'payment_failed' => 'Payment failed',
     'payment_not_found' => 'Payment data not found',
+    'otp_expired' => 'OTP has expired',
+    'invalid_otp' => 'Invalid OTP',
+    'register_success' => 'Registered successfully',
+    
 
 ];

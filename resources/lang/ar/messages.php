@@ -95,4 +95,8 @@ return [
     'payment_success' => 'تمت عملية الدفع بنجاح',
     'payment_failed' => 'فشل في إتمام عملية الدفع',
     'payment_not_found' => 'لم يتم العثور على بيانات الدفع',
+    'otp_expired' => 'انتهت صلاحية رمز التحقق',
+    'invalid_otp' => 'رمز التحقق غير صالح',
+    'register_success' => 'تم التسجيل بنجاح',
+    
 ];
