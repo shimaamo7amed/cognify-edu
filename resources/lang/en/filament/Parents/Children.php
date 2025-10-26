@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'model' => 'Child',
+    'plural' => 'Children',
+    'name' => 'Name',
+    'age' => 'Age',
+    'gender' => 'Gender',
+    'male' => 'Male',
+    'female' => 'Female',
+    'case_name' => 'Case Name',
+    'school_name' => 'School Name',
+    'school_address' => 'School Address',
+    'home_address' => 'Home Address',
+    'description' => 'Description',
+    'audio' => 'Audio',
+    'no_audio' => 'No audio available',
+    'illnesses' => 'Illnesses',
+    'medications' => 'Medications',
+    'special_notes' => 'Special Notes',
+    'image' => 'Image',
+    'view' => 'View',
+    'delete' => 'Delete',
+    'delete_selected' => 'Delete Selected',
+    'add' => 'Add Child',
+];
