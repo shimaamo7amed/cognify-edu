@@ -38,6 +38,8 @@ class ProductResource extends JsonResource
             'tags' => $this->tags?->name[$locale] ?? null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'average_rating' => $this->reviews->avg('rate') ? (int) round($this->reviews->avg('rate')) : null,
+
         ];
 
     }

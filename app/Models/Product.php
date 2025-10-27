@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\WishList;
 use App\Models\CartProduct;
 use Illuminate\Support\Str;
+use App\Models\ProductReview;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -40,10 +41,6 @@ class Product extends Model
         parent::boot();
 
         static::creating(function ($product) {
-            // $product->slug = [
-            //     'en' => Str::slug($product->name['en']),
-            //     'ar' => $product->name['ar']
-            // ];
             $product->slug = Str::slug($product->name['en']);
 
         });
@@ -77,6 +74,10 @@ class Product extends Model
         return $this->belongsToMany(Order::class, 'order_product')
                     ->withPivot('quantity', 'price', 'total')
                     ->withTimestamps();
+    }
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
     }
 
 

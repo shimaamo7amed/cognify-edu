@@ -24,11 +24,7 @@ class ProductController extends Controller
         if ($products->total() === 0) {
             return apiResponse(false, [], __('messages.no_products_found'));
         }
-
-        // البيانات بالـ Resource
         $data = ProductResource::collection($products->items());
-
-        // metadata كاملة باللينكات
         $pagination = [
             'current_page'   => $products->currentPage(),
             'from'           => $products->firstItem(),
