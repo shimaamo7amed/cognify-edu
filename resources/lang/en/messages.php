@@ -92,6 +92,8 @@ return [
     'otp_expired' => 'OTP has expired',
     'invalid_otp' => 'Invalid OTP',
     'register_success' => 'Registered successfully',
+    'unauthenticatedOrder'=> 'You must be logged in or provide a session ID to view orders',
+    'data_found' => 'Data retrieved successfully',
     
 
 ];

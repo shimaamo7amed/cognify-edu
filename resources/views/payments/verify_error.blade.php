@@ -1,88 +1,124 @@
+{{-- resources/views/payments/verify_error.blade.php --}}
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Verification Failed</title>
+    <title>فشل الدفع</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            justify-content: center;
             padding: 20px;
         }
-        .error-container {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            padding: 30px;
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
             max-width: 500px;
             width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             text-align: center;
         }
         .error-icon {
-            color: #dc3545;
-            font-size: 48px;
-            margin-bottom: 20px;
+            width: 100px;
+            height: 100px;
+            background: #fee;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .error-icon svg {
+            width: 60px;
+            height: 60px;
+            stroke: #f44;
         }
         h1 {
-            color: #dc3545;
-            margin-bottom: 15px;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
         }
         .error-details {
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            padding: 15px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
             margin: 20px 0;
-            text-align: left;
-            font-family: monospace;
-            word-break: break-all;
+            text-align: right;
         }
         .btn {
-            background-color: #0d6efd;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            text-decoration: none;
             display: inline-block;
-            margin-top: 15px;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin: 10px;
         }
         .btn:hover {
-            background-color: #0b5ed7;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #6c757d;
         }
     </style>
 </head>
 <body>
-    <div class="error-container">
-        <div class="error-icon">❌</div>
-        <h1>Payment Verification Failed</h1>
-        <p>{{ $message ?? 'We encountered an error while processing your payment.' }}</p>
+    <div class="container">
+        <div class="error-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </div>
 
-        @if(isset($description) || isset($reason) || isset($errorId))
+        <h1>فشلت عملية الدفع</h1>
+        <p>{{ $message ?? 'حدث خطأ أثناء معالجة عملية الدفع' }}</p>
+
+        @if(isset($description) || isset($errorId) || isset($reason))
             <div class="error-details">
                 @if(isset($description))
-                    <p><strong>Description:</strong> {{ $description }}</p>
+                    <p><strong>الوصف:</strong> {{ $description }}</p>
                 @endif
-
                 @if(isset($reason))
-                    <p><strong>Reason:</strong> {{ $reason }}</p>
+                    <p><strong>السبب:</strong> {{ $reason }}</p>
                 @endif
-
                 @if(isset($errorId))
-                    <p><strong>Error ID:</strong> {{ $errorId }}</p>
+                    <p><strong>رقم الخطأ:</strong> {{ $errorId }}</p>
                 @endif
             </div>
         @endif
 
-        <a href="{{ route('fawry.payment.page', ['token' => $payment_id]) }}" class="btn">Return to Payment</a>
+        @if(isset($payment_id))
+            <div class="error-details">
+                <p><strong>معرف الدفع:</strong> {{ $payment_id }}</p>
+            </div>
+        @endif
+
+        <div style="margin-top: 30px;">
+            {{-- ✅ التحقق من وجود payment_id قبل استخدامه --}}
+            @if(isset($payment_id))
+                <a href="{{ route('fawry.payment.page', ['token' => $payment_id]) }}" class="btn">
+                    إعادة المحاولة
+                </a>
+            @endif
+            
+            <a href="{{ url('/') }}" class="btn btn-secondary">
+                العودة للصفحة الرئيسية
+            </a>
+        </div>
     </div>
 </body>
 </html>

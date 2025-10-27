@@ -26,4 +26,17 @@ class ProductReviewController extends Controller
             $review['message']
         );
     }
+    public function productReviews()
+    {
+        $result = $this->productReviewService->getPurchasedProducts();
+
+          return apiResponse(
+            $result['status'],
+            $result['data'] ?? [],
+            $result['message']
+        );
+    
+    }
+
+
 }

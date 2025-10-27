@@ -111,6 +111,8 @@ Route::controller(OrderController::class)->group(function () {
 });
 Route::prefix('store')->controller(ProductReviewController::class)->group(function () {
     Route::post('/review/product', 'addReview');
+    Route::get('/product/orders', 'productReviews');
+
 });
 
 Route::controller(ReviewController::class)->group(function () {
