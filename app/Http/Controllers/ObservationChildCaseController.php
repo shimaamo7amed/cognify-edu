@@ -109,6 +109,7 @@ class ObservationChildCaseController extends Controller
             'path' => $request->path(),
             'payment' => $request->route('payment')
         ]);
+
         if ($request->has('description') || $request->has('errorId') || $request->has('reason')) {
             Log::error('Fawry payment error', $request->only('description', 'errorId', 'reason'));
 
@@ -119,6 +120,7 @@ class ObservationChildCaseController extends Controller
                 'message' => 'Payment verification failed'
             ]);
         }
+
         if ($request->has('fawryRefNumber') || $request->has('merchantRefNumber')) {
             Log::info('Fawry direct callback detected', $request->all());
 

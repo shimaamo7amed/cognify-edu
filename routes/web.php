@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\App;
 use App\Models\ObservationChildCase;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FawryController;
+use App\Http\Controllers\PaymentController;
 use App\Filament\EmployeePanel\Pages\ViewChild;
 use App\Http\Controllers\E_Commerce\OrderController;
 use App\Http\Controllers\ObservationChildCaseController;
@@ -59,7 +60,6 @@ Route::get('employee/view-child/{childId}', ViewChild::class)
 
 
 // Payment routes
-Route::get('/payments/verify/{payment?}', [ObservationChildCaseController::class, 'payment_verify'])->name('verify-payment');
-Route::get('/payments/fawry', [ObservationChildCaseController::class, 'showFawryPaymentPage'])->name('fawry.payment.page');
 
-Route::get('/payments/verify/{payment?}', [OrderController::class, 'verifyFawryPayment'])->name('verify-payment');
+Route::get('/payments/verify/{payment?}', [PaymentController::class, 'verifyPayment'])->name('verify-payment');
+Route::get('/payments/fawry', [PaymentController::class, 'showFawryPaymentPage'])->name('fawry.payment.page');

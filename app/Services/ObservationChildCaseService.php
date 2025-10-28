@@ -26,22 +26,26 @@ class ObservationChildCaseService
         $this->fawry_merchant = config('nafezly-payments.FAWRY_MERCHANT');
         $this->fawry_secret = config('nafezly-payments.FAWRY_SECRET');
     }
+
     public function bookWithFawry(array $data)
     {
         $parent = Auth::user();
         if (!$parent) {
             return ['status' => false, 'message' => 'User not authenticated'];
         }
+
         $child = CognifyChild::where('parent_id', $parent->id)
                     ->where('id', $data['child_id'])
                     ->first();
         if (!$child) {
             return ['status' => false, 'message' => __('messages.child_not_found')];
         }
+
         $session = ObservationSession::find($data['session_id']);
         if (!$session) {
             return ['status' => false, 'message' => __('messages.session_not_found')];
         }
+
         $normalizedTime = str_replace(['ص', 'م'], ['AM', 'PM'], $data['time']);
         try {
             $time = Carbon::parse($normalizedTime)->format('H:i:s');
@@ -49,7 +53,6 @@ class ObservationChildCaseService
             return ['status' => false, 'message' => 'Invalid time format'];
         }
 
-        // Find slot
         $slot = $session->slots()
             ->whereDate('start_time', $data['date'])
             ->whereTime('start_time', '<=', $time)
@@ -59,9 +62,11 @@ class ObservationChildCaseService
         if (!$slot) {
             return ['status' => false, 'message' => __('messages.slot_not_available')];
         }
+
         if ($this->hasAlreadyBooked($data['child_id'], $data['session_id'])) {
             return ['status' => false, 'message' => __('messages.session_already_booked')];
         }
+
         $totalAmount = $session->service_fee + $session->service_tax;
         $fawry = new FawryPayment();
         $paymentMethod = $fawry->pay(
@@ -84,11 +89,14 @@ class ObservationChildCaseService
                 $normalized = $paymentMethod['payment'];
             }
         }
+
         $paymentId = $normalized['payment_id'] ?? null;
         $html = $normalized['html'] ?? '';
+
         if (empty($paymentId) && isset($paymentMethod['payment_id'])) {
             $paymentId = $paymentMethod['payment_id'];
         }
+
         if (empty($html)) {
             $html = $paymentMethod['payment']['payment']['html']
                 ?? $paymentMethod['payment']['html']
@@ -99,6 +107,7 @@ class ObservationChildCaseService
         if (empty($paymentId) || empty($html)) {
             return ['status' => false, 'message' => 'Payment initialization failed'];
         }
+
         Cache::put('fawry_case_' . $paymentId, [
             'child_id' => $child->id,
             'session_id' => $session->id,
@@ -106,8 +115,12 @@ class ObservationChildCaseService
             'slot_time' => $time,
             'total_amount' => $totalAmount,
         ], 3600);
-        $returnUrl = route('verify-payment', ['payment' => 'fawry']);
-        $signature = hash('sha256',
+
+        // ✅ التصحيح: استخدام route موجود
+        $returnUrl = route('verify-payment', ['payment' => 'fawry']) . '?type=observation';
+
+        $signature = hash(
+            'sha256',
             $this->fawry_merchant .
             $paymentId .
             $parent->id .
@@ -117,6 +130,7 @@ class ObservationChildCaseService
             number_format($totalAmount, 2, '.', '') .
             $this->fawry_secret
         );
+
         $paymentData = [
             'payment_id' => $paymentId,
             'user_name' => $parent->name,
@@ -127,18 +141,21 @@ class ObservationChildCaseService
             'description' => 'Booking Session #' . $data['session_id'],
             'signature' => $signature,
         ];
+
         $cacheKey = 'fawry_payment_' . $paymentId;
         Cache::put($cacheKey, $paymentData, 3600);
-            return [
+
+        return [
             'status' => true,
             'payment_id' => $paymentId,
-            'redirect_url' => route('fawry.payment.page', ['token' => $paymentId]),
+            'redirect_url' => route('fawry.payment.page') . '?token=' . $paymentId . '&type=observation',
             'message' => __('messages.proceed_to_payment'),
-            'role'=>$parent->role,
-            'step'=>$parent->step,
-            'token'=>$parent->createToken('auth_token')->plainTextToken
+            'role' => $parent->role,
+            'step' => $parent->step,
+            'token' => $parent->createToken('auth_token')->plainTextToken
         ];
     }
+
     public function verifyFawry($data): array
     {
         try {
@@ -156,6 +173,7 @@ class ObservationChildCaseService
             } else {
                 $request = $data;
             }
+
             Log::info('Fawry verification request details', [
                 'request_data' => is_array($data) ? $data : $data->all(),
                 'request_object' => $request instanceof Request ? [
@@ -164,9 +182,10 @@ class ObservationChildCaseService
                     'charge_response' => $request->input('chargeResponse')
                 ] : 'Not a Request object'
             ]);
+
             try {
                 $verify = $fawry->verify($request);
-                    Log::info('Fawry verification response', [
+                Log::info('Fawry verification response', [
                     'response' => $verify
                 ]);
             } catch (\Exception $e) {
@@ -174,7 +193,8 @@ class ObservationChildCaseService
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
-                    try {
+
+                try {
                     $reference_id = null;
                     if ($request->has('chargeResponse')) {
                         $res = json_decode($request->input('chargeResponse'), true);
@@ -186,14 +206,17 @@ class ObservationChildCaseService
                     } elseif (is_array($data) && isset($data['payment_id'])) {
                         $reference_id = $data['payment_id'];
                     }
+
                     if ($reference_id) {
                         $hash = hash('sha256', $this->fawry_merchant . $reference_id . $this->fawry_secret);
-                        $url = $this->fawry_url . 'ECommerceWeb/Fawry/payments/status/v2?merchantCode=' . 
+                        $url = $this->fawry_url . 'ECommerceWeb/Fawry/payments/status/v2?merchantCode=' .
                         $this->fawry_merchant . '&merchantRefNumber=' . $reference_id . '&signature=' . $hash;
+
                         Log::info('Manually calling Fawry status API', [
                             'url' => $url,
                             'reference_id' => $reference_id
                         ]);
+
                         $response = \Illuminate\Support\Facades\Http::get($url);
                         Log::info('Raw Fawry API response', [
                             'status' => $response->status(),
@@ -201,20 +224,22 @@ class ObservationChildCaseService
                             'json' => $response->json(),
                             'headers' => $response->headers()
                         ]);
+
                         if ($response->successful()) {
                             $responseData = $response->json();
                             Log::info('Parsed Fawry response data', [
                                 'response_data' => $responseData
                             ]);
+
                             if (isset($responseData['orderStatus'])) {
                                 $verify = [
                                     'success' => $responseData['orderStatus'] === 'PAID',
                                     'payment_id' => $reference_id,
-                                    'message' => $responseData['orderStatus'] === 'PAID' ? 
+                                    'message' => $responseData['orderStatus'] === 'PAID' ?
                                         'Payment successful' : 'Payment not completed: ' . $responseData['orderStatus'],
                                     'process_data' => $responseData
                                 ];
-                                // Log the success status
+
                                 Log::info('Payment verification result', [
                                     'success' => $responseData['orderStatus'] === 'PAID',
                                     'order_status' => $responseData['orderStatus'],
@@ -251,9 +276,11 @@ class ObservationChildCaseService
                     throw $e;
                 }
             }
+
             Log::info('Final verification result', [
                 'verify' => $verify
             ]);
+
             if (!isset($verify['success']) || $verify['success'] !== true) {
                 return [
                     'status' => false,
@@ -261,10 +288,12 @@ class ObservationChildCaseService
                     'details' => $verify
                 ];
             }
-                Log::info('Payment verified successfully', [
+
+            Log::info('Payment verified successfully', [
                 'payment_id' => $verify['payment_id'] ?? null,
                 'reference_id' => $reference_id ?? null
             ]);
+
             $paymentId = $verify['payment_id'] ?? (is_array($data) ? ($data['payment_id'] ?? null) : $data->input('payment_id'));
 
             if (!$paymentId) {
@@ -276,7 +305,6 @@ class ObservationChildCaseService
                 return ['status' => false, 'message' => 'Booking data not found for payment: ' . $paymentId];
             }
 
-            // Create the case record
             $case = ObservationChildCase::create([
                 'child_id' => $cached['child_id'],
                 'observation_session_id' => $cached['session_id'],
@@ -285,9 +313,11 @@ class ObservationChildCaseService
                 'total_amount' => $cached['total_amount'],
                 'status' => 'new_request',
             ]);
+
             if (Auth::check()) {
                 CognifyParent::where('id', Auth::id())->update(['step' => 4]);
             }
+
             Cache::forget('fawry_case_' . $paymentId);
 
             return [
@@ -308,6 +338,7 @@ class ObservationChildCaseService
             ];
         }
     }
+
     protected function hasAlreadyBooked(int $childId, int $sessionId): bool
     {
         return ObservationChildCase::where('child_id', $childId)

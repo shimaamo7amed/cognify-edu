@@ -84,7 +84,7 @@
                 price: {{ $amount ?? 0 }},
                 quantity: 1
             }],
-            returnUrl: "{{ route('verify-payment', ['payment' => 'fawry']) }}",
+            returnUrl: "{{ route('verify-payment', ['payment' => 'fawry']) }}{{ request()->query('type') ? ('?type=' . request()->query('type')) : '' }}",
             paymentMethod: "{{ config('nafezly-payments.FAWRY_PAY_MODE') }}",
             signature: "{{ $signature ?? '' }}"
         };

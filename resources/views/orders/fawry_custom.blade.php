@@ -60,19 +60,17 @@
 
         <div class="spinner"></div>
 
-        <form id="fawryForm" action="{{ $redirect_url ?? '' }}" method="POST">
+        <form id="fawryForm" action="{{ $redirect_url }}" method="GET">
             @csrf
-            <input type="hidden" name="payment_id" value="{{ $payment_id ?? '' }}">
-            <input type="hidden" name="order_id" value="{{ $order_id ?? '' }}">
-            <input type="hidden" name="amount" value="{{ $amount ?? '' }}">
-            <input type="hidden" name="callback_url" value="{{ route('fawry.payment.verify') }}">
+            <input type="hidden" name="payment_id" value="{{ $payment_id }}">
+            <input type="hidden" name="amount" value="{{ $amount }}">
+            <input type="hidden" name="token" value="{{ $token }}">
         </form>
 
         <div class="footer">Redirecting to Fawry Secure Payment...</div>
     </div>
 
     <script>
-        // Automatically submit the form after 1 second
         setTimeout(() => {
             document.getElementById('fawryForm').submit();
         }, 1000);
