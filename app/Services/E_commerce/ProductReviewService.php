@@ -21,6 +21,7 @@ class ProductReviewService
                 'message' => __('messages.unauthenticated'),
             ];
         }
+
         $hasPurchased = OrderProduct::whereHas('order', function ($q) use ($userId, $sessionId) {
             if ($userId) {
                 $q->where('user_id', $userId);
@@ -35,6 +36,7 @@ class ProductReviewService
                 'message' => __('messages.only_purchased_can_rate'),
             ];
         }
+
         $conditions = ['product_id' => $data['product_id']];
         if ($userId) {
             $conditions['user_id'] = $userId;
@@ -53,6 +55,7 @@ class ProductReviewService
             'data' => $review,
         ];
     }
+
     public function getPurchasedProducts()
     {
         $user = auth('sanctum')->user();
@@ -82,24 +85,19 @@ class ProductReviewService
             ->values();
 
         $reviews = ProductReview::query()
-            ->when($user, fn($q) => $q->where('user_id', $user->id))
-            ->when($sessionId, fn($q) => $q->where('session_id', $sessionId))
+            ->when($user, fn ($q) => $q->where('user_id', $user->id))
+            ->when($sessionId, fn ($q) => $q->where('session_id', $sessionId))
             ->get(['product_id', 'rate']);
 
         $productsWithStatus = $productIds->map(function ($productId) use ($reviews) {
             $review = $reviews->firstWhere('product_id', $productId);
             $isRated = $review !== null;
 
-            $data = [
+            return [
                 'product_id' => $productId,
                 'is_rated' => $isRated,
+                'user_rate' => $isRated ? (int) $review->rate : null,
             ];
-
-            if ($isRated) {
-                $data['user_rate'] = (int) $review->rate;
-            }
-
-            return $data;
         });
 
         return [
@@ -108,7 +106,4 @@ class ProductReviewService
             'data' => $productsWithStatus,
         ];
     }
-
-
-
 }
