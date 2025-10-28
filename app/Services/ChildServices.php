@@ -71,7 +71,7 @@ class ChildServices
     {
         $updateData = ['step' => 3];
 
-        if ($parent->role === 'publicUser') {
+        if ($parent->role === 'public-user') {
             $updateData['role'] = 'parent';
         }
 
