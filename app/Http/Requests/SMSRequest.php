@@ -15,7 +15,17 @@ class SMSRequest extends FormRequest
     {
         return [
             'phone' => 'required|string',
-            'otp' => 'required|string|min:4|max:6',
+            'email_otp' => 'required|digits_between:4,6',
+            'sms_otp' => 'required|digits_between:4,6',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'phone.required' => 'رقم الهاتف مطلوب.',
+            'email_otp.required' => 'رمز التحقق المرسل إلى الإيميل مطلوب.',
+            'sms_otp.required' => 'رمز التحقق المرسل إلى رقم الهاتف مطلوب.',
         ];
     }
 }
