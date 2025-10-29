@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Nafezly\Payments\Classes\FawryPayment;
 use App\Services\ObservationChildCaseService;
 use App\Http\Requests\ObservationChildCaseRequest;
 use Illuminate\Routing\Controller;
@@ -14,10 +12,23 @@ use Illuminate\Routing\Controller;
 class ObservationChildCaseController extends Controller
 {
     protected $bookingService;
+    protected $userJson;
+    protected $step;
 
     public function __construct(ObservationChildCaseService $bookingService)
     {
         $this->bookingService = $bookingService;
+        $user = auth()->user();
+
+        if ($user) {
+            $userData = [
+                'step' => $user->step ?? null,
+                'token' => $user->createToken('api-token')->plainTextToken,
+            ];
+
+            $this->step = $user->step ?? null;
+            $this->userJson = urlencode(json_encode($userData));
+        }
     }
 
     public function bookAndPay(ObservationChildCaseRequest $request)
@@ -41,11 +52,10 @@ class ObservationChildCaseController extends Controller
                 'payment_id' => $payment['payment_id'],
                 'redirect_url' => $payment['redirect_url'],
                 'message' => $payment['message'],
-                'role' => $payment['role'] ?? null,
-                'step' => $payment['step'] ?? null,
-                'token' => $payment['token'] ?? null,
+                // 'role' => $payment['role'] ?? null,
+                // 'step' => $payment['step'] ?? $this->step,
+                // 'token' => $payment['token'] ?? null,
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Exception in bookAndPay', [
                 'error' => $e->getMessage(),
@@ -66,7 +76,7 @@ class ObservationChildCaseController extends Controller
 
             if (!$token) {
                 Log::error('Fawry payment page accessed without token');
-                return view('payments.verify_error', [
+                return view('payments.error', [
                     'message' => 'Invalid payment request',
                     'description' => 'Missing payment token'
                 ]);
@@ -77,10 +87,12 @@ class ObservationChildCaseController extends Controller
 
             if (!$paymentData) {
                 Log::error('Fawry payment data not found in cache', ['token' => $token]);
-                return view('payments.verify_error', [
+                return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
                     'message' => 'Payment session expired or invalid',
-                    'description' => 'Please try initiating the payment again.'
-                ]);
+                    'description' => 'Please try initiating the payment again.',
+                    'step' => $this->step,
+                    'payment_type' => 'observation'
+                ]));
             }
 
             $paymentData['token'] = $token;
@@ -88,17 +100,18 @@ class ObservationChildCaseController extends Controller
             $paymentData['message'] = __('messages.proceed_to_payment');
 
             return view('payments.fawry_custom', $paymentData);
-
         } catch (\Exception $e) {
             Log::error('Exception in showFawryPaymentPage', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return view('payments.verify_error', [
+            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
                 'message' => 'An error occurred while processing your payment',
-                'description' => 'Please try again later or contact support.'
-            ]);
+                'description' => 'Please try again later or contact support.',
+                'step' => $this->step,
+                'payment_type' => 'observation'
+            ]));
         }
     }
 
@@ -113,75 +126,117 @@ class ObservationChildCaseController extends Controller
         if ($request->has('description') || $request->has('errorId') || $request->has('reason')) {
             Log::error('Fawry payment error', $request->only('description', 'errorId', 'reason'));
 
-            return view('payments.verify_error', [
-                'description' => $request->input('description'),
-                'errorId' => $request->input('errorId'),
+            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => $request->input('description') ?? 'Payment verification failed',
+                'error_id' => $request->input('errorId'),
                 'reason' => $request->input('reason'),
-                'message' => 'Payment verification failed'
-            ]);
+                'step' => $this->step,
+                'payment_type' => 'observation'
+            ]));
         }
-
         if ($request->has('fawryRefNumber') || $request->has('merchantRefNumber')) {
-            Log::info('Fawry direct callback detected', $request->all());
-
             $data = [
                 'payment_id' => $request->input('merchantRefNumber'),
                 'fawryRefNumber' => $request->input('fawryRefNumber')
             ];
         } else {
-            try {
-                $data = $request->validate([
-                    'payment_id' => 'required|string',
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Payment verification validation error', [
-                    'error' => $e->getMessage(),
-                    'params' => $request->all()
-                ]);
-
-                return view('payments.verify_error', [
-                    'message' => 'Invalid payment verification request',
-                    'description' => 'Required parameters are missing'
-                ]);
-            }
+            $data = $request->validate([
+                'payment_id' => 'required|string',
+            ]);
         }
 
         try {
             $verify = $this->bookingService->verifyFawry($data);
 
-            if (!$verify['status']) {
-                Log::warning('Payment verification failed', [
+            // ✅ تكوين بيانات المستخدم من ال verify
+            $userJson = null;
+            $userStep = null;
+
+            if (isset($verify['user_id'])) {
+                $user = \App\Models\CognifyParent::find($verify['user_id']);
+
+                if ($user) {
+                    $newToken = $user->createToken('api-token')->plainTextToken;
+                    $userStep = $user->step;
+                    $userData = [
+                        'step' => $userStep,
+                        'token' => $newToken,
+                    ];
+                    $userJson = urlencode(json_encode($userData));
+                }
+            }
+
+            // ✅ الدفع ناجح
+
+            // ✅ الدفع ناجح
+            if (isset($verify['status']) && $verify['status'] === true) {
+                Log::info('Payment verification successful', [
                     'data' => $data,
                     'response' => $verify
                 ]);
 
-                return view('payments.verify_error', [
-                    'message' => $verify['message'],
-                    'payment_id' => $data['payment_id'] ?? 'Unknown'
-                ]);
+                // ✅ تكوين بيانات المستخدم من الـ verify
+                $userJson = null;
+                $userStep = null;
+                $token = null;
+
+                if (isset($verify['user_id'])) {
+                    $user = \App\Models\CognifyParent::find($verify['user_id']);
+                } else {
+                    $user = auth()->user();
+                }
+
+                if ($user) {
+                    $token = $user->createToken('api-token')->plainTextToken;
+                    // Ensure step is always present by falling back to controller's stored step
+                    $userStep = $user->step ?? $this->step ?? null;
+                    $userData = [
+                        'step' => $userStep,
+                        'token' => $token,
+                    ];
+                    $userJson = urlencode(json_encode($userData));
+                } else {
+                    // No user found; still include step if available from controller state
+                    $userStep = $this->step ?? null;
+                }
+
+                return redirect()->to('https://cognfiy.vercel.app/payment-success?' . http_build_query([
+                    'success' => true,
+                    'transaction_number' => $verify['fawryRefNumber'] ?? $data['fawryRefNumber'] ?? null,
+                    'user' => $userJson,
+                    'message' => $verify['message'] ?? 'Payment successful',
+                    'step' => $userStep,
+                ]));
             }
 
-            Log::info('Payment verification successful', [
+
+            // ❌ الدفع فشل
+            Log::warning('Payment verification failed', [
                 'data' => $data,
                 'response' => $verify
             ]);
 
-            return view('payments.verify_success', [
-                'payment_id' => $data['payment_id'],
-                'case_id' => $verify['case_id'],
-                'message' => $verify['message']
-            ]);
-
+            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => $verify['message'] ?? 'Payment verification failed',
+                'payment_id' => $data['payment_id'] ?? 'Unknown',
+                'step' => $userStep,
+                'payment_type' => 'observation'
+            ]));
         } catch (\Exception $e) {
             Log::error('Payment verification exception', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return view('payments.verify_error', [
-                'message' => 'An error occurred during payment verification',
-                'description' => 'Please contact support with this error ID: ' . uniqid()
-            ]);
+            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => 'An unexpected error occurred during payment verification',
+                'description' => 'Please contact support with this error ID: ' . uniqid(),
+                'step' => $this->step,
+                'payment_type' => 'observation'
+            ]));
         }
     }
 }

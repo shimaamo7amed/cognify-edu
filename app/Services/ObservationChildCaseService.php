@@ -314,9 +314,20 @@ class ObservationChildCaseService
                 'status' => 'new_request',
             ]);
 
-            if (Auth::check()) {
-                CognifyParent::where('id', Auth::id())->update(['step' => 4]);
+            $parent = CognifyParent::whereHas('children', function ($q) use ($cached) {
+                $q->where('id', $cached['child_id']);
+            })->first();
+
+            
+            $parent = CognifyParent::whereHas('children', function ($q) use ($cached) {
+                $q->where('id', $cached['child_id']);
+            })->first();
+
+            if ($parent) {
+                $parent->update(['step' => 4]);
             }
+
+
 
             Cache::forget('fawry_case_' . $paymentId);
 

@@ -100,5 +100,6 @@ return [
     'register_success' => 'تم التسجيل بنجاح',
     'unauthenticatedOrder'=> 'يجب تسجيل الدخول أو تقديم معرف الجلسة لعرض الطلبات',
     'data_found' => 'تم استرجاع البيانات بنجاح',
+    'booking_success' => 'تم حجز الجلسة بنجاح',
     
 ];
