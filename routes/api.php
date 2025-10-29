@@ -11,6 +11,7 @@ use App\Http\Controllers\Forms\PartnerController;
 use App\Http\Controllers\E_Commerce\CartController;
 use App\Http\Controllers\Forms\ContactUsController;
 use App\Http\Controllers\E_Commerce\OrderController;
+use App\Http\Controllers\OrderObservationController;
 use App\Http\Controllers\E_Commerce\ReviewController;
 use App\Http\Controllers\E_Commerce\ProductController;
 use App\Http\Controllers\E_Commerce\CategoryController;
@@ -125,7 +126,7 @@ Route::get('/categories', [CategoryController::class, 'getAllCategory']);
 
 
 
-
+Route::get('/order-details/{id}', [OrderObservationController::class, 'getDetails']);
 
 
 
