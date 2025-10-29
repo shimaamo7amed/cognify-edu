@@ -3,54 +3,122 @@
 namespace App\Services;
 
 use App\Models\CognifyParent;
+use App\Services\SMSService;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\ResetPasswordCode;
+use Illuminate\Support\Facades\Cache;
 
 class PasswordService
 {
-    public function forgetPassword(array $data)
+    public static function ForgetPassword(array $array)
     {
-        $user = CognifyParent::where('email', $data['email'])->first();
+        $input = $array['email_or_phone'] ?? null;
 
-        $expiresAt = now()->addMinutes(10); // صلاحية 10 دقائق
-
-        Mail::to($user->email)->send(
-            new ResetPasswordCode($data['otp'], $user->name, $user->email)
-        );
-
-        $user->update([
-            'otp' => $data['otp'],
-            'otp_expires_at' => $expiresAt
-        ]);
-
-        return $user;
-    }
-
-    public function validateOtp(array $data)
-    {
-        // dd($data);
-        $user = CognifyParent::where('email', $data['email'])
-            ->where('otp', $data['otp'])
-            ->where('otp_expires_at', '>=', now())
+        $user = CognifyParent::where('email', $input)
+            ->orWhere('phone', $input)
             ->first();
 
-        return $user;
+        if (!$user) {
+            return [
+                'status' => false,
+                'message' => __('messages.user_not_found'),
+            ];
+        }
+
+        $otp = 123456; // للاختبار فقط
+        $cacheKey = 'parent_forget_' . $input;
+
+        Cache::put($cacheKey, [
+            'user_id' => $user->id,
+            'otp' => $otp,
+            'verified' => false,
+        ], now()->addMinutes(10));
+
+        if (filter_var($input, FILTER_VALIDATE_EMAIL)) {
+            Mail::send('mails.parent-otp', ['otp' => $otp], function ($message) use ($user) {
+                $message->to($user->email)->subject(__('messages.password_reset_subject'));
+            });
+        } else {
+            app(SMSService::class)->sendSMS(
+                $user->phone,
+                __('messages.password_reset_sms', ['otp' => $otp])
+            );
+        }
+
+        return [
+            'status' => true,
+            'message' => __('messages.otp_sent'),
+        ];
     }
 
-    public function resetPassword(array $data)
+    public static function VerifyForgetOtp(array $array)
     {
-        $user = $this->validateOtp($data);
+        $input = $array['email_or_phone'] ?? null;
+        $cacheKey = 'parent_forget_' . $input;
+
+        $cachedData = Cache::get($cacheKey);
+
+        if (!$cachedData) {
+            return [
+                'status' => false,
+                'message' => __('messages.otp_expired'),
+            ];
+        }
+
+        if ($cachedData['otp'] != $array['otp']) {
+            return [
+                'status' => false,
+                'message' => __('messages.invalid_otp'),
+            ];
+        }
+
+        $cachedData['verified'] = true;
+        Cache::put($cacheKey, $cachedData, now()->addMinutes(10));
+
+        return [
+            'status' => true,
+            'message' => __('messages.otp_verified'),
+        ];
+    }
+
+    public static function ResetPassword(array $array)
+    {
+        $input = $array['email_or_phone'] ?? null;
+        $cacheKey = 'parent_forget_' . $input;
+
+        $cachedData = Cache::get($cacheKey);
+
+        if (!$cachedData) {
+            return [
+                'status' => false,
+                'message' => __('messages.otp_expired_or_not_verified'),
+            ];
+        }
+
+        if (empty($cachedData['verified'])) {
+            return [
+                'status' => false,
+                'message' => __('messages.verify_otp_first'),
+            ];
+        }
+
+        $user = CognifyParent::find($cachedData['user_id']);
 
         if (!$user) {
-            return false;
+            return [
+                'status' => false,
+                'message' => __('messages.user_not_found'),
+            ];
         }
 
         $user->update([
-            'password' => bcrypt($data['password']),
-            'otp' => null,
-            'otp_expires_at' => null
+            'password' => bcrypt($array['password']),
         ]);
 
-        return $user;
+        Cache::forget($cacheKey);
+
+        return [
+            'status' => true,
+            'message' => __('messages.password_reset_success'),
+        ];
     }
 }

@@ -11,9 +11,6 @@ use Filament\Notifications\Notification;
 
 class CognifyParentServices
 {
-    
-
-
     public function ParentRegister(array $array)
     {
         // $emailOtp = rand(100000, 999999);
@@ -92,7 +89,7 @@ class CognifyParentServices
         ], __('messages.register_success'));
     }
 
-    static function loginParent(array $array)
+    public function loginParent(array $array)
     {
         $parent = CognifyParent::where('email', $array['email'])->first();
         if (!$parent) {
@@ -105,22 +102,59 @@ class CognifyParentServices
 
     }
 
-    // static public function ForgetPassword(array $array)
+    // public function ForgetPassword(array $array)
     // {
-    //     $user = CognifyParent::where('email', $array['email'])->first();
-    //     if (!$user)
-    //     {
+    //     $query = CognifyParent::query();
+    //     if (!empty($array['email'])) {
+    //         $query->where('email', $array['email']);
+    //     } elseif (!empty($array['phone'])) {
+    //         $query->where('phone', $array['phone']);
+    //     }
+
+    //     $user = $query->first();
+    //     if (!$user) {
     //         return null;
     //     }
-    //     $otp = $array['otp'];
-    //     Mail::to($user->email)->send(new ResetPasswordCode($otp, $user->name, $user->email));
-    //     $user->otp = $otp;
-    //     $user->save();
+    //     // $emailOtp = rand(100000, 999999);
+    //     $emailOtp = 123456;
+    //     $smsOtp   = rand(100000, 999999);
+    //     $cacheKey = 'parent_forget_' . ($user->phone ?? $user->email);
+    //     Cache::put($cacheKey, [
+    //         'user_id'   => $user->id,
+    //         'email_otp' => $emailOtp,
+    //         'sms_otp'   => $smsOtp,
+    //         'verified'  => false,
+    //     ], now()->addMinutes(10));
+    //     if (!empty($user->email)) {
+    //         Mail::send('mails.parent-otp', ['otp' => $emailOtp], function ($message) use ($user) {
+    //             $message->to($user->email)
+    //                     ->subject('Your Password Reset Code');
+    //         });
+    //     }
+    //     if (!empty($user->phone)) {
+    //         app(SMSService::class)->sendSMS(
+    //             $user->phone,
+    //             "Your Cognify password reset code is: {$smsOtp}"
+    //         );
+    //     }
 
     //     return $user;
     // }
 
-    // static public function ResetPassword(array $array)
+
+    // public function ValidateOTP(array $array)
+    // {
+    //     $user = CognifyParent::where([
+    //         "otp" => $otp,
+    //     ])->first();
+    //     if ($user) {
+    //         return true;
+    //     } else {
+    //         return false;
+    //     }
+    // }
+
+    // public function ResetPassword(array $array)
     // {
     //     $parent = CognifyParent::where('otp', $array['otp'])->first();
     //     // dd($parent);

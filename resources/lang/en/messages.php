@@ -95,5 +95,20 @@ return [
     'unauthenticatedOrder'=> 'You must be logged in or provide a session ID to view orders',
     'data_found' => 'Data retrieved successfully',
     'booking_success' => 'Session booked successfully',
+    'password_reset_subject' => 'Your Password Reset Code',
+    'password_reset_sms' => 'Your Cognify password reset code is: :otp',
+    'email_or_phone_required' => 'You must provide either an email or a phone number.',
+    'otp_expired' => 'The code has expired or is invalid.',
+    'invalid_otp' => 'The verification code is incorrect.',
+    'otp_verified' => 'The code has been successfully verified.',
+    'otp_expired_or_not_verified' => 'The code has expired or has not been verified yet.',
+    'verify_otp_first' => 'Please verify the code before resetting your password.',
+    'user_not_found' => 'User not found.',
+    'password_reset_success' => 'Password has been successfully reset.',
+    'parent_otp_success' => 'The code has been successfully verified.',
+    'email_or_phone_required'=>'You must provide either an email or a phone number.',
+    'password_required' => 'Password is required.',
+    'password_confirmed' => 'Password confirmation does not match.',
+
 
 ];

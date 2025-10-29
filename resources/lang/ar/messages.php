@@ -101,5 +101,21 @@ return [
     'unauthenticatedOrder'=> 'يجب تسجيل الدخول أو تقديم معرف الجلسة لعرض الطلبات',
     'data_found' => 'تم استرجاع البيانات بنجاح',
     'booking_success' => 'تم حجز الجلسة بنجاح',
+
+     'password_reset_subject' => 'رمز إعادة تعيين كلمة المرور',
+    'password_reset_sms' => 'رمز إعادة تعيين كلمة المرور الخاص بك هو: :otp',
+    'email_or_phone_required' => 'يجب إدخال البريد الإلكتروني أو رقم الجوال.',
+    'otp_expired' => 'انتهت صلاحية الكود أو غير صحيح.',
+    'invalid_otp' => 'رمز التحقق غير صحيح.',
+    'otp_verified' => 'تم التحقق من الرمز بنجاح.',
+    'otp_expired_or_not_verified' => 'انتهت صلاحية الكود أو لم يتم التحقق منه.',
+    'verify_otp_first' => 'يرجى التحقق من الكود أولاً قبل تغيير كلمة المرور.',
+    'user_not_found' => 'المستخدم غير موجود.',
+    'password_reset_success' => 'تم تغيير كلمة المرور بنجاح.',
+    'parent_otp_success' => 'تم التحقق من الرمز بنجاح.',
+    'email_or_phone_required'=>'يجب إدخال البريد الإلكتروني او رقم الجوال',
+    'password_required' => 'كلمة المرور مطلوبة.',
+    'password_confirmed' => 'تأكيد كلمة المرور غير متطابق.',
+
     
 ];

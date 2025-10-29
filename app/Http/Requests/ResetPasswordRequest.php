@@ -6,18 +6,15 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ResetPasswordRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
+
     public function rules(): array
     {
         return [
-            'email'    => 'required|email|exists:cognify_parents,email',
-            'otp'      => 'required|numeric',
+            'email_or_phone' => 'required|string',
             'password' => [
                 'required',
                 'string',
@@ -29,6 +26,17 @@ class ResetPasswordRequest extends FormRequest
                 'regex:/[@$!%*#?&]/',
                 'confirmed'
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email_or_phone.required' => __('messages.email_or_phone_required'),
+            'password.required' => __('messages.password_required'),
+            'password.confirmed' => __('messages.password_confirmed'),
+            'password.min' => __('messages.password_min'),
+            'password.regex' => __('messages.password_complexity'),
         ];
     }
 }
