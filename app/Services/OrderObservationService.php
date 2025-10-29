@@ -22,8 +22,6 @@ class OrderObservationService
                     'message' => 'Order not found.'
                 ];
             }
-
-            // 🔒 تحقق من الملكية
             if (
                 ($user && $order->user_id != $user->id) ||
                 (!$user && $order->session_id != $sessionId)
@@ -38,8 +36,8 @@ class OrderObservationService
                 'status' => true,
                 'type' => 'order',
                 'data' => [
-                    'amount' => isset($observation->total_amount)
-                    ? (string) (int) $observation->total_amount
+                    'amount' => isset($order->total_amount)
+                    ? (string) (int) $order->total_amount
                     : "0",
                     'payment_method' => $order->payment_method ?? 'CAERD',
                     'created_at' => $order->created_at?->format('Y-m-d H:i:s'),
@@ -55,8 +53,6 @@ class OrderObservationService
                     'message' => 'Observation not found.'
                 ];
             }
-
-            // 🔒 تحقق من الملكية
             if ($user) {
                 $childParent = $observation->child?->parent;
                 if ($childParent && $childParent->id != $user->id) {

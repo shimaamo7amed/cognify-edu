@@ -308,8 +308,6 @@ class OrderService
             if (!$cart) {
                 return ['status' => false, 'message' => 'Cart not found'];
             }
-
-            // ✅ Determine the real payment method from Fawry API response
             $gatewayPaymentMethod = null;
 
             if (isset($verify['process_data'])) {
@@ -329,8 +327,6 @@ class OrderService
             Log::info('Detected payment method from Fawry', [
                 'gatewayPaymentMethod' => $gatewayPaymentMethod
             ]);
-
-            // Normalize IDs: store numeric user IDs in user_id, others in session_id
             $orderUserId = isset($cachedData['user_id']) && is_numeric($cachedData['user_id'])
                 ? (int) $cachedData['user_id']
                 : null;
@@ -346,15 +342,13 @@ class OrderService
                 'subtotal'       => $cachedData['total_amount'],
                 'total_amount'   => $cachedData['total_amount'],
                 'payment_status' => 'paid',
-                // Store the real gateway payment method when available (e.g. CARD, PayUsingCC)
-                'payment_method' => $gatewayPaymentMethod ?: 'fawry',
+                'payment_method' => $gatewayPaymentMethod ?: 'CARD',
                 'payment_id'     => $paymentId,
                 'guest_name'     => $cachedData['user_name'] ?? ($cachedData['guest_name'] ?? null),
                 'guest_email'    => $cachedData['user_email'] ?? ($cachedData['guest_email'] ?? null),
                 'guest_phone'    => $cachedData['user_phone'] ?? ($cachedData['guest_phone'] ?? null),
                 'guest_address'  => $cachedData['guest_address'],
             ]);
-
             foreach ($cart->items as $item) {
                 OrderProduct::create([
                     'order_id'   => $order->id,
@@ -363,12 +357,18 @@ class OrderService
                     'price'      => $item->unit_price,
                     'total'      => $item->unit_price * $item->quantity,
                 ]);
+                $product = \App\Models\Product::find($item->product_id);
+                if ($product) {
+                    if ($product->quantity >= $item->quantity) {
+                        $product->decrement('quantity', $item->quantity);
+                    } else {
+                        $product->update(['quantity' => 0]);
+                    }
+                }
             }
 
             $cart->update(['status' => 'ordered']);
             Cache::forget('fawry_order_' . $paymentId);
-
-            // Compute real transaction number from verify/process_data or request payload
             $transactionNumber = null;
             if (isset($verify['fawryRefNumber'])) {
                 $transactionNumber = $verify['fawryRefNumber'];
@@ -386,7 +386,6 @@ class OrderService
                     ?? ($pd['orderTransactions'][0]['paymentRefrenceNumber'] ?? null);
             }
             if (!$transactionNumber) {
-                // fallback to incoming data (e.g., ChargeResponse redirect)
                 if (is_array($data)) {
                     $transactionNumber = $data['referenceNumber'] ?? $data['authNumber'] ?? null;
                 } else {
