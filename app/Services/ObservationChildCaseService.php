@@ -35,8 +35,8 @@ class ObservationChildCaseService
         }
 
         $child = CognifyChild::where('parent_id', $parent->id)
-                    ->where('id', $data['child_id'])
-                    ->first();
+            ->where('id', $data['child_id'])
+            ->first();
         if (!$child) {
             return ['status' => false, 'message' => __('messages.child_not_found')];
         }
@@ -115,20 +115,18 @@ class ObservationChildCaseService
             'slot_time' => $time,
             'total_amount' => $totalAmount,
         ], 3600);
-
-        // ✅ التصحيح: استخدام route موجود
         $returnUrl = route('verify-payment', ['payment' => 'fawry']) . '?type=observation';
 
         $signature = hash(
             'sha256',
             $this->fawry_merchant .
-            $paymentId .
-            $parent->id .
-            $returnUrl .
-            "1" .
-            "1" .
-            number_format($totalAmount, 2, '.', '') .
-            $this->fawry_secret
+                $paymentId .
+                $parent->id .
+                $returnUrl .
+                "1" .
+                "1" .
+                number_format($totalAmount, 2, '.', '') .
+                $this->fawry_secret
         );
 
         $paymentData = [
@@ -152,7 +150,7 @@ class ObservationChildCaseService
             'message' => __('messages.proceed_to_payment'),
             'role' => $parent->role,
             'step' => $parent->step,
-            'token' => $parent->createToken('auth_token')->plainTextToken
+            'token' => $parent->createToken('auth_token')->plainTextToken,
         ];
     }
 
@@ -210,7 +208,7 @@ class ObservationChildCaseService
                     if ($reference_id) {
                         $hash = hash('sha256', $this->fawry_merchant . $reference_id . $this->fawry_secret);
                         $url = $this->fawry_url . 'ECommerceWeb/Fawry/payments/status/v2?merchantCode=' .
-                        $this->fawry_merchant . '&merchantRefNumber=' . $reference_id . '&signature=' . $hash;
+                            $this->fawry_merchant . '&merchantRefNumber=' . $reference_id . '&signature=' . $hash;
 
                         Log::info('Manually calling Fawry status API', [
                             'url' => $url,
@@ -308,6 +306,34 @@ class ObservationChildCaseService
                 $transactionNumber = $verify['details']['process_data']['orderTransactions'][0]['referenceNumber'];
             }
 
+            // Extract payment method from verification data when available (e.g., CARD, PayUsingCC)
+            $paymentMethod = null;
+            if (isset($verify['process_data'])) {
+                $pd = $verify['process_data'];
+                $paymentMethod =
+                    ($pd['paymentMethod'] ?? null)
+                    ?? ($pd['paymentMethodName'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['paymentMethod'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['paymentMethodName'] ?? null);
+            }
+            // Additional fallbacks: top-level or nested details, or incoming request payload
+            if (!$paymentMethod) {
+                $paymentMethod =
+                    ($verify['paymentMethod'] ?? null)
+                    ?? ($verify['paymentMethodName'] ?? null)
+                    ?? ($verify['details']['process_data']['paymentMethod'] ?? null)
+                    ?? ($verify['details']['process_data']['paymentMethodName'] ?? null)
+                    ?? ($verify['details']['paymentMethod'] ?? null)
+                    ?? ($verify['details']['paymentMethodName'] ?? null);
+            }
+            if (!$paymentMethod) {
+                if (is_array($data)) {
+                    $paymentMethod = $data['paymentMethod'] ?? $data['paymentMethodName'] ?? null;
+                } elseif ($data instanceof Request) {
+                    $paymentMethod = $data->input('paymentMethod') ?? $data->input('paymentMethodName');
+                }
+            }
+            // dd($paymentMethod);
             $paymentId = $verify['payment_id'] ?? (is_array($data) ? ($data['payment_id'] ?? null) : $data->input('payment_id'));
 
             if (!$paymentId) {
@@ -326,6 +352,7 @@ class ObservationChildCaseService
                 'slot_time' => $cached['slot_time'],
                 'total_amount' => $cached['total_amount'],
                 'status' => 'new_request',
+                'payment_method' => $paymentMethod,
             ]);
 
             $parent = CognifyParent::whereHas('children', function ($q) use ($cached) {
@@ -349,6 +376,7 @@ class ObservationChildCaseService
                 'status' => true,
                 'case_id' => $case->id,
                 'message' => __('messages.booking_success'),
+                'payment_method' => $paymentMethod,
                 'payment_id' => $paymentId,
                 'fawryRefNumber' => $transactionNumber,
                 'merchantRefNumber' => $paymentId,

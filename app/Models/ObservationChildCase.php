@@ -19,7 +19,7 @@ class ObservationChildCase extends Model
         'status',
         'duration',
         'status_updated_by',
-        'pyment_method',
+        'payment_method',
     ];
     protected $casts = [
     'slot_date' => 'date',
