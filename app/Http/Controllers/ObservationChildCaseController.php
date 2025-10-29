@@ -3,20 +3,26 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Nafezly\Payments\Classes\FawryPayment;
 use App\Services\ObservationChildCaseService;
 use App\Http\Requests\ObservationChildCaseRequest;
-use Illuminate\Routing\Controller;
+
+
 
 class ObservationChildCaseController extends Controller
 {
     protected $bookingService;
     protected $userJson;
     protected $step;
+    protected $fawryPayment;
 
     public function __construct(ObservationChildCaseService $bookingService)
     {
+                $this->fawryPayment = new FawryPayment();
+
         $this->bookingService = $bookingService;
         $user = auth()->user();
 
@@ -52,9 +58,9 @@ class ObservationChildCaseController extends Controller
                 'payment_id' => $payment['payment_id'],
                 'redirect_url' => $payment['redirect_url'],
                 'message' => $payment['message'],
-                // 'role' => $payment['role'] ?? null,
-                // 'step' => $payment['step'] ?? $this->step,
-                // 'token' => $payment['token'] ?? null,
+                'role' => $payment['role'] ?? null,
+                'step' => $payment['step'] ?? $this->step,
+                'token' => $payment['token'] ?? null,
             ], 200);
         } catch (\Exception $e) {
             Log::error('Exception in bookAndPay', [
@@ -87,10 +93,10 @@ class ObservationChildCaseController extends Controller
 
             if (!$paymentData) {
                 Log::error('Fawry payment data not found in cache', ['token' => $token]);
-                return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+                return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
                     'message' => 'Payment session expired or invalid',
                     'description' => 'Please try initiating the payment again.',
-                    'step' => $this->step,
+                    'step' => 3,
                     'payment_type' => 'observation'
                 ]));
             }
@@ -106,7 +112,7 @@ class ObservationChildCaseController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
                 'message' => 'An error occurred while processing your payment',
                 'description' => 'Please try again later or contact support.',
                 'step' => $this->step,
@@ -126,12 +132,12 @@ class ObservationChildCaseController extends Controller
         if ($request->has('description') || $request->has('errorId') || $request->has('reason')) {
             Log::error('Fawry payment error', $request->only('description', 'errorId', 'reason'));
 
-            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
                 'success' => false,
                 'message' => $request->input('description') ?? 'Payment verification failed',
                 'error_id' => $request->input('errorId'),
                 'reason' => $request->input('reason'),
-                'step' => $this->step,
+                'step' => 3,
                 'payment_type' => 'observation'
             ]));
         }
@@ -148,8 +154,6 @@ class ObservationChildCaseController extends Controller
 
         try {
             $verify = $this->bookingService->verifyFawry($data);
-
-            // ✅ تكوين بيانات المستخدم من ال verify
             $userJson = null;
             $userStep = null;
 
@@ -166,17 +170,11 @@ class ObservationChildCaseController extends Controller
                     $userJson = urlencode(json_encode($userData));
                 }
             }
-
-            // ✅ الدفع ناجح
-
-            // ✅ الدفع ناجح
             if (isset($verify['status']) && $verify['status'] === true) {
                 Log::info('Payment verification successful', [
                     'data' => $data,
                     'response' => $verify
                 ]);
-
-                // ✅ تكوين بيانات المستخدم من الـ verify
                 $userJson = null;
                 $userStep = null;
                 $token = null;
@@ -189,7 +187,6 @@ class ObservationChildCaseController extends Controller
 
                 if ($user) {
                     $token = $user->createToken('api-token')->plainTextToken;
-                    // Ensure step is always present by falling back to controller's stored step
                     $userStep = $user->step ?? $this->step ?? null;
                     $userData = [
                         'step' => $userStep,
@@ -197,31 +194,37 @@ class ObservationChildCaseController extends Controller
                     ];
                     $userJson = urlencode(json_encode($userData));
                 } else {
-                    // No user found; still include step if available from controller state
                     $userStep = $this->step ?? null;
                 }
+                $finalStep = $userStep ?? $this->step ?? 4;
 
-                return redirect()->to('https://cognfiy.vercel.app/payment-success?' . http_build_query([
-                    'success' => true,
-                    'transaction_number' => $verify['fawryRefNumber'] ?? $data['fawryRefNumber'] ?? null,
-                    'user' => $userJson,
-                    'message' => $verify['message'] ?? 'Payment successful',
-                    'step' => $userStep,
-                ]));
+                $transactionNumber = $verify['fawryRefNumber']
+                ?? $verify['merchantRefNumber']
+                ?? ($verify['process_data']['fawryRefNumber'] ?? null)
+                ?? ($verify['process_data']['referenceNumber'] ?? null)
+                ?? ($verify['details']['process_data']['fawryRefNumber'] ?? null)
+                ?? null;
+                // dd( $transactionNumber);
+
+            return redirect()->to('http://localhost:5173/payment-success?' . http_build_query([
+                'success' => true,
+                'transaction_number' => $transactionNumber,
+                // 'message' => $verify['message'] ?? 'Payment successful',
+                'step' => $finalStep,
+                'case_id' => $verify['case_id'],
+                'payment_type' => 'observation',
+            ]));
+
             }
-
-
-            // ❌ الدفع فشل
             Log::warning('Payment verification failed', [
                 'data' => $data,
                 'response' => $verify
             ]);
 
-            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
                 'success' => false,
                 'message' => $verify['message'] ?? 'Payment verification failed',
-                'payment_id' => $data['payment_id'] ?? 'Unknown',
-                'step' => $userStep,
+                'step' => 3,
                 'payment_type' => 'observation'
             ]));
         } catch (\Exception $e) {
@@ -230,13 +233,19 @@ class ObservationChildCaseController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return redirect()->to('https://cognfiy.vercel.app/payment-failed?' . http_build_query([
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
                 'success' => false,
                 'message' => 'An unexpected error occurred during payment verification',
                 'description' => 'Please contact support with this error ID: ' . uniqid(),
-                'step' => $this->step,
+                'step' => 3,
                 'payment_type' => 'observation'
             ]));
         }
     }
+
+
+
+   
+
+
 }

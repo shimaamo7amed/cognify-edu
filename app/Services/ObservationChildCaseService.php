@@ -294,6 +294,20 @@ class ObservationChildCaseService
                 'reference_id' => $reference_id ?? null
             ]);
 
+            // Extract real transaction number from verification data when available
+            $transactionNumber = null;
+            if (isset($verify['fawryRefNumber']) && $verify['fawryRefNumber']) {
+                $transactionNumber = $verify['fawryRefNumber'];
+            } elseif (isset($verify['process_data']['fawryRefNumber']) && $verify['process_data']['fawryRefNumber']) {
+                $transactionNumber = $verify['process_data']['fawryRefNumber'];
+            } elseif (isset($verify['process_data']['referenceNumber']) && $verify['process_data']['referenceNumber']) {
+                $transactionNumber = $verify['process_data']['referenceNumber'];
+            } elseif (isset($verify['process_data']['orderTransactions'][0]['referenceNumber'])) {
+                $transactionNumber = $verify['process_data']['orderTransactions'][0]['referenceNumber'];
+            } elseif (isset($verify['details']['process_data']['orderTransactions'][0]['referenceNumber'])) {
+                $transactionNumber = $verify['details']['process_data']['orderTransactions'][0]['referenceNumber'];
+            }
+
             $paymentId = $verify['payment_id'] ?? (is_array($data) ? ($data['payment_id'] ?? null) : $data->input('payment_id'));
 
             if (!$paymentId) {
@@ -318,7 +332,7 @@ class ObservationChildCaseService
                 $q->where('id', $cached['child_id']);
             })->first();
 
-            
+
             $parent = CognifyParent::whereHas('children', function ($q) use ($cached) {
                 $q->where('id', $cached['child_id']);
             })->first();
@@ -335,6 +349,10 @@ class ObservationChildCaseService
                 'status' => true,
                 'case_id' => $case->id,
                 'message' => __('messages.booking_success'),
+                'payment_id' => $paymentId,
+                'fawryRefNumber' => $transactionNumber,
+                'merchantRefNumber' => $paymentId,
+                'process_data' => $verify['process_data'] ?? null,
             ];
         } catch (\Exception $e) {
             Log::error('Exception in verifyFawry', [
