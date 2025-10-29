@@ -339,11 +339,40 @@ class OrderService
             $cart->update(['status' => 'ordered']);
             Cache::forget('fawry_order_' . $paymentId);
 
+            // Compute real transaction number from verify/process_data or request payload
+            $transactionNumber = null;
+            if (isset($verify['fawryRefNumber'])) {
+                $transactionNumber = $verify['fawryRefNumber'];
+            } elseif (isset($verify['referenceNumber'])) {
+                $transactionNumber = $verify['referenceNumber'];
+            } elseif (isset($verify['process_data'])) {
+                $pd = $verify['process_data'];
+                $transactionNumber =
+                    ($pd['fawryRefNumber'] ?? null)
+                    ?? ($pd['referenceNumber'] ?? null)
+                    ?? ($pd['paymentRefrenceNumber'] ?? null)
+                    ?? ($pd['threeDSInfo']['trxNumber'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['referenceNumber'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['fawryRefNumber'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['paymentRefrenceNumber'] ?? null);
+            }
+            if (!$transactionNumber) {
+                // fallback to incoming data (e.g., ChargeResponse redirect)
+                if (is_array($data)) {
+                    $transactionNumber = $data['referenceNumber'] ?? $data['authNumber'] ?? null;
+                } else {
+                    $transactionNumber = $data->input('referenceNumber') ?? $data->input('authNumber');
+                }
+            }
+
             return [
                 'status' => true,
                 'message' => 'Payment verified successfully. Order created.',
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
+                'fawryRefNumber' => $transactionNumber,
+                'merchantRefNumber' => $paymentId,
+                'process_data' => $verify['process_data'] ?? null,
             ];
         } catch (\Exception $e) {
             Log::error('Exception in verifyFawryPayment', [

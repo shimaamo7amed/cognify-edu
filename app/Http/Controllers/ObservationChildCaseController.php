@@ -7,6 +7,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Nafezly\Payments\Classes\FawryPayment;
+use Illuminate\Support\Facades\Auth;
 use App\Services\ObservationChildCaseService;
 use App\Http\Requests\ObservationChildCaseRequest;
 
@@ -21,18 +22,17 @@ class ObservationChildCaseController extends Controller
 
     public function __construct(ObservationChildCaseService $bookingService)
     {
-                $this->fawryPayment = new FawryPayment();
+        $this->fawryPayment = new FawryPayment();
 
         $this->bookingService = $bookingService;
-        $user = auth()->user();
+        $user = Auth::user();
 
         if ($user) {
-            $userData = [
-                'step' => $user->step ?? null,
-                'token' => $user->createToken('api-token')->plainTextToken,
-            ];
-
             $this->step = $user->step ?? null;
+            $userData = [
+                'step' => $this->step,
+                'token' => null,
+            ];
             $this->userJson = urlencode(json_encode($userData));
         }
     }
@@ -182,7 +182,7 @@ class ObservationChildCaseController extends Controller
                 if (isset($verify['user_id'])) {
                     $user = \App\Models\CognifyParent::find($verify['user_id']);
                 } else {
-                    $user = auth()->user();
+                    $user = Auth::user();
                 }
 
                 if ($user) {
@@ -199,22 +199,30 @@ class ObservationChildCaseController extends Controller
                 $finalStep = $userStep ?? $this->step ?? 4;
 
                 $transactionNumber = $verify['fawryRefNumber']
-                ?? $verify['merchantRefNumber']
-                ?? ($verify['process_data']['fawryRefNumber'] ?? null)
-                ?? ($verify['process_data']['referenceNumber'] ?? null)
-                ?? ($verify['details']['process_data']['fawryRefNumber'] ?? null)
-                ?? null;
+                    ?? $verify['referenceNumber']
+                    ?? $verify['merchantRefNumber']
+                    ?? ($verify['process_data']['fawryRefNumber'] ?? null)
+                    ?? ($verify['process_data']['referenceNumber'] ?? null)
+                    ?? ($verify['process_data']['orderTransactions'][0]['referenceNumber'] ?? null)
+                    ?? ($verify['process_data']['orderTransactions'][0]['fawryRefNumber'] ?? null)
+                    ?? ($verify['process_data']['orderTransactions'][0]['paymentMethodRefNumber'] ?? null)
+                    ?? ($verify['details']['referenceNumber'] ?? null)
+                    ?? ($verify['details']['process_data']['fawryRefNumber'] ?? null)
+                    ?? ($verify['details']['process_data']['referenceNumber'] ?? null)
+                    ?? ($verify['details']['process_data']['orderTransactions'][0]['referenceNumber'] ?? null)
+                    ?? ($verify['details']['process_data']['orderTransactions'][0]['fawryRefNumber'] ?? null)
+                    ?? ($verify['details']['process_data']['orderTransactions'][0]['paymentMethodRefNumber'] ?? null)
+                    ?? null;
                 // dd( $transactionNumber);
 
-            return redirect()->to('http://localhost:5173/payment-success?' . http_build_query([
-                'success' => true,
-                'transaction_number' => $transactionNumber,
-                // 'message' => $verify['message'] ?? 'Payment successful',
-                'step' => $finalStep,
-                'case_id' => $verify['case_id'],
-                'payment_type' => 'observation',
-            ]));
-
+                return redirect()->to('http://localhost:5173/payment-success?' . http_build_query([
+                    'success' => true,
+                    'transaction_number' => $transactionNumber,
+                    // 'message' => $verify['message'] ?? 'Payment successful',
+                    'step' => $finalStep,
+                    'case_id' => $verify['case_id'],
+                    'payment_type' => 'observation',
+                ]));
             }
             Log::warning('Payment verification failed', [
                 'data' => $data,
@@ -242,10 +250,4 @@ class ObservationChildCaseController extends Controller
             ]));
         }
     }
-
-
-
-   
-
-
 }

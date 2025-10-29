@@ -33,7 +33,11 @@ class OrderController extends Controller
         $paymentData = Cache::get($cacheKey);
 
         if (!$paymentData) {
-            return view('orders.verify_error', ['message' => 'Payment session expired']);
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => 'Payment session expired',
+                'payment_type' => 'order'
+            ]));
         }
 
         // Reuse the same generic payment view used for observations to initiate checkout
@@ -57,21 +61,70 @@ class OrderController extends Controller
     {
         Log::info('Fawry verification request', ['data' => $request->all()]);
 
-        // Debug: check if order cache exists for incoming merchantRefNumber
-        if ($request->has('merchantRefNumber')) {
-            $paymentId = $request->input('merchantRefNumber');
-            $cacheKey = 'fawry_order_' . $paymentId;
-            Log::info('Debug order cache existence', [
-                'cache_key' => $cacheKey,
-                'exists' => Cache::has($cacheKey)
+        try {
+            if ($request->has('merchantRefNumber')) {
+                $paymentId = $request->input('merchantRefNumber');
+                $cacheKey = 'fawry_order_' . $paymentId;
+                Log::info('Debug order cache existence', [
+                    'cache_key' => $cacheKey,
+                    'exists' => Cache::has($cacheKey)
+                ]);
+            } else {
+                $paymentId = $request->input('payment_id');
+            }
+            $verify = $this->orderService->verifyFawryPayment($request->all());
+
+        $transactionNumber =
+            ($verify['fawryRefNumber'] ?? null)
+            ?? ($verify['paymentRefrenceNumber'] ?? null) 
+            ?? ($verify['referenceNumber'] ?? null)
+            ?? ($verify['merchantRefNumber'] ?? null)
+            ?? ($verify['process_data']['fawryRefNumber'] ?? null)
+            ?? ($verify['process_data']['paymentRefrenceNumber'] ?? null)
+            ?? ($verify['process_data']['referenceNumber'] ?? null)
+            ?? ($verify['process_data']['orderTransactions'][0]['referenceNumber'] ?? null)
+            ?? ($verify['process_data']['orderTransactions'][0]['fawryRefNumber'] ?? null)
+            ?? ($verify['process_data']['orderTransactions'][0]['paymentRefrenceNumber'] ?? null)
+            ?? ($verify['details']['referenceNumber'] ?? null)
+            ?? ($verify['details']['process_data']['fawryRefNumber'] ?? null)
+            ?? ($verify['details']['process_data']['referenceNumber'] ?? null)
+            ?? ($verify['details']['process_data']['orderTransactions'][0]['referenceNumber'] ?? null)
+            ?? ($verify['details']['process_data']['orderTransactions'][0]['fawryRefNumber'] ?? null)
+            ?? ($verify['details']['process_data']['orderTransactions'][0]['paymentRefrenceNumber'] ?? null);
+            if (isset($verify['status']) && $verify['status'] === true) {
+
+                Log::info('Fawry order verification successful', [
+                    'transaction_number' => $transactionNumber,
+                    'verify_response' => $verify
+                ]);
+
+                return redirect()->to('http://localhost:5173/payment-success?' . http_build_query([
+                    'success' => true,
+                    'transaction_number' => $transactionNumber,
+                    'order_id' => $verify['order_id'] ?? null,
+                    'payment_type' => 'order',
+                ]));
+            }
+            Log::warning('Fawry order verification failed', [
+                'verify_response' => $verify
             ]);
-        }
-        $response = $this->orderService->verifyFawryPayment($request->all());
 
-        if ($response['status']) {
-            return view('orders.verify_success', ['message' => $response['message']]);
-        }
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => $verify['message'] ?? 'Payment verification failed',
+                'payment_type' => 'order',
+            ]));
+        } catch (\Exception $e) {
+            Log::error('Fawry order verification exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
-        return view('orders.verify_error', ['message' => $response['message']]);
+            return redirect()->to('http://localhost:5173/payment-failed?' . http_build_query([
+                'success' => false,
+                'message' => 'An unexpected error occurred during order payment verification',
+                'payment_type' => 'order',
+            ]));
+        }
     }
 }
