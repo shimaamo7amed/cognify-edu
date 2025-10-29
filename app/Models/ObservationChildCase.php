@@ -18,7 +18,8 @@ class ObservationChildCase extends Model
         'total_amount',
         'status',
         'duration',
-        'status_updated_by'
+        'status_updated_by',
+        'pyment_method',
     ];
     protected $casts = [
     'slot_date' => 'date',

@@ -309,16 +309,45 @@ class OrderService
                 return ['status' => false, 'message' => 'Cart not found'];
             }
 
+            // ✅ Determine the real payment method from Fawry API response
+            $gatewayPaymentMethod = null;
+
+            if (isset($verify['process_data'])) {
+                $pd = $verify['process_data'];
+
+                $gatewayPaymentMethod =
+                    ($pd['paymentMethod'] ?? null) // e.g. "CARD"
+                    ?? ($pd['paymentMethodName'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['paymentMethod'] ?? null)
+                    ?? ($pd['orderTransactions'][0]['paymentMethodName'] ?? null);
+            }
+
+            if (!$gatewayPaymentMethod && isset($data['paymentMethod'])) {
+                $gatewayPaymentMethod = $data['paymentMethod'];
+            }
+
+            Log::info('Detected payment method from Fawry', [
+                'gatewayPaymentMethod' => $gatewayPaymentMethod
+            ]);
+
+            // Normalize IDs: store numeric user IDs in user_id, others in session_id
+            $orderUserId = isset($cachedData['user_id']) && is_numeric($cachedData['user_id'])
+                ? (int) $cachedData['user_id']
+                : null;
+            $orderSessionId = $cachedData['session_id']
+                ?? (!is_null($orderUserId) ? null : (isset($cachedData['user_id']) ? (string) $cachedData['user_id'] : null));
+
             $order = Order::create([
-                'user_id'        => $cachedData['user_id'],
-                'session_id'     => $cachedData['session_id'] ?? null,
+                'user_id'        => $orderUserId,
+                'session_id'     => $orderSessionId,
                 'cart_id'        => $cart->id,
                 'order_number'   => 'ORD-' . strtoupper(uniqid()),
                 'status'         => 'completed',
                 'subtotal'       => $cachedData['total_amount'],
                 'total_amount'   => $cachedData['total_amount'],
                 'payment_status' => 'paid',
-                'payment_method' => 'fawry',
+                // Store the real gateway payment method when available (e.g. CARD, PayUsingCC)
+                'payment_method' => $gatewayPaymentMethod ?: 'fawry',
                 'payment_id'     => $paymentId,
                 'guest_name'     => $cachedData['user_name'] ?? ($cachedData['guest_name'] ?? null),
                 'guest_email'    => $cachedData['user_email'] ?? ($cachedData['guest_email'] ?? null),
